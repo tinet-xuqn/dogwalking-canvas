@@ -14,11 +14,6 @@
 	<canvas id="dog-walking"></canvas>
 	<img src="images/dog_07.png">
 	<script type="text/javascript">
-		let img = new Image();
-		img.onload = function(){
-			beginDraw(img);
-		}
-		img.src = 'images/dog_01.png';
 
 		class DogAnimation{
 			constructor(canvas){
@@ -31,25 +26,74 @@
 				this.RES_PATH = './images';
 				this.IMG_COUNT = 8;
 				this.start();
+				this.dog = {
+					stepDistance: 10,
+					speed: .15,
+					mouseX: -1,
+					currentX: 0,
+					frontStopX: -1,
+					backStopX: window.innerWidth
+				};
 			}
 			async start(){
 				await this.loadResourses();
+				this.pictureWidth = this.dogPictures[0].naturalWidth/2;
+				this.recordMousePosition();
 				window.requestAnimationFrame(this.walk.bind(this));
+			}
+			recordMousePosition(){
+				window.addEventListener("mousemove", event=>{
+					this.dog.frontStopX = event.clientX - this.pictureWidth;
+					this.dog.backStopX = event.clientX;
+				})
 			}
 			walk(){
 				let now = Date.now();
-				if (now - this.lastWalking > 100) {
-					this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-			        // 获取下一张图片的索引
-			        let keyFrameIndex = ++this.keyFrameIndex % this.IMG_COUNT;
-			        let img = this.dogPictures[keyFrameIndex + 1]; 
-			                        // img, sx, sy, swidth, sheight
-			        this.ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight,
-			                // dx = 20, dy, dwidth, dheight
-			                20, 20, 186, 162); 
-			        this.lastWalking = now;
+		        let distance = (now - this.lastWalking)*this.dog.speed; 
+		        if (distance < this.dog.stepDistance){
+		        	window.requestAnimationFrame(this.walk.bind(this));
+		        	return;
+		        }
+				this.keyFrameIndex = ++this.keyFrameIndex % this.IMG_COUNT;
+				let direct = -1,
+				    stopWalking = false;
+				// 如果鼠标在狗的前面则往前走
+				if (this.dog.frontStopX > this.dog.mouseX) {
+				    direct = 1; 
+				} 
+				// 如果鼠标在狗的后面则往回走
+				else if (this.dog.backStopX < this.dog.mouseX) {
+				    direct = -1;
+				}				
+				// 如果鼠标在狗在位置
+				else {
+				    stopWalking = true;
+				    // 如果鼠标在小狗图片中间的右边，则direct为正，否则为负
+				    direct = this.dog.backStopX - this.dog.mouseX 
+				                    > this.pictureWidth / 2 ? 1 : -1; 
+				    this.keyFrameIndex = -1;
 				}
+				let ctx = this.ctx;
+				ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+				ctx.save();
+				if (!stopWalking) {
+				    this.dog.mouseX += this.dog.stepDistance * direct;
+				}
+				if (direct === -1) {
+				    // 左右翻转绘制
+				    ctx.scale(direct, 1);
+				}
+				let img = this.dogPictures[this.keyFrameIndex + 1];
+				let drawX = 0;
+				// 左右翻转绘制的位置需要计算一下
+				drawX = this.dog.mouseX * direct -  
+				            (direct === -1 ? this.pictureWidth : 0);
+				ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight,
+				                drawX, 20, 186, 162);  
+				ctx.restore();
+				this.lastWalking = now;
 				window.requestAnimationFrame(this.walk.bind(this));
+
 			}
 			loadResourses(){
 				let imagesPath = [];
